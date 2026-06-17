@@ -38,7 +38,7 @@ jobs:
         target: "~/app/backend" 
         strip_components: 1
 
-    # 5. Connect via SSH to stop the old app version and run the new one smoothly
+   # 5. Connect via SSH to stop the old app version and run the new one smoothly
     - name: SSH to EC2 and Restart Application
       uses: appleboy/ssh-action@master
       with:
@@ -47,13 +47,15 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           echo "Stopping existing Spring Boot application if running..."
-          pkill -f 'java -jar' || true          
+          # 🌟 FIX: We use 'pkill ... && echo "Stopped" || true' to guarantee a clean 0 exit code
+          pkill -f 'java -jar' && echo "Application process terminated." || true          
           
           cd ~/app/backend
           
           echo "Starting the new version using nohup..."
+          # Force a small delay and use standard background execution patterns
           nohup java -jar *.jar > app.log 2>&1 &
           
           echo "Checking app deployment status..."
           sleep 5
-          ps -ef | grep java
+          ps -ef | grep java || true
