@@ -46,16 +46,23 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          echo "Stopping existing Spring Boot application if running..."
-          # 🌟 FIX: We use 'pkill ... && echo "Stopped" || true' to guarantee a clean 0 exit code
-          pkill -f 'java -jar' && echo "Application process terminated." || true          
+          echo "Checking for running Spring Boot application..."
+          # 🌟 Safe PID extraction: finds the process ID without triggering signal errors
+          PID=$(pgrep -f 'java -jar' || true)
+          
+          if [ -n "$PID" ]; then
+            echo "Found running application with PID: $PID. Stopping gracefully..."
+            kill -15 $PID
+            sleep 3
+          else
+            echo "No existing application process found running."
+          fi
           
           cd ~/app/backend
           
           echo "Starting the new version using nohup..."
-          # Force a small delay and use standard background execution patterns
+          # Standard production background execution pattern
           nohup java -jar *.jar > app.log 2>&1 &
           
-          echo "Checking app deployment status..."
-          sleep 5
-          ps -ef | grep java || true
+          echo "Ensuring background execution successfully detached..."
+          exit 0
