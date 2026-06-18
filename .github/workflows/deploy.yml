@@ -46,25 +46,19 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          echo "Handling process termination cleanly..."
-          
-          # 🌟 FIX: Running the lookup & kill inside a subshell ensures any SIGTERM/143 errors stay contained and never crash the pipeline
-          (
-            PID=$(pgrep -f 'java -jar' || true)
-            if [ -n "$PID" ]; then
-              echo "Stopping application PID: $PID"
-              kill -15 $PID
-              sleep 5
-            else
-              echo "No running application found."
-            fi
-          ) || true
-          
-          echo "Moving forward with deployment..."
+          echo "Navigating to application workspace..."
           cd ~/app/backend
+          
+          echo "Safely clearing the production port binding..."
+          # 🌟 FIX: Looks up the process holding port 8080 and releases it silently.
+          # Change 8080 to your actual Spring Boot server port if you changed it in application.properties!
+          sudo fuser -k 8080/tcp || true
+          
+          echo "Giving the port time to release..."
+          sleep 3
           
           echo "Starting the new version using nohup..."
           nohup java -jar *.jar > app.log 2>&1 </dev/null &
           
-          echo "Pipeline execution finished successfully."
+          echo "Pipeline finished successfully!"
           sleep 2
