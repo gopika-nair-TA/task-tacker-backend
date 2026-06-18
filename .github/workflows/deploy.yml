@@ -38,7 +38,7 @@ jobs:
         target: "~/app/backend" 
         strip_components: 1
 
-   # 5. Connect via SSH to stop the old app version and run the new one smoothly
+  # 5. Connect via SSH to stop the old app version and run the new one smoothly
     - name: SSH to EC2 and Restart Application
       uses: appleboy/ssh-action@master
       with:
@@ -46,23 +46,25 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          echo "Checking for running Spring Boot application..."
-          PID=$(pgrep -f 'java -jar' || true)
+          echo "Handling process termination cleanly..."
           
-          if [ -n "$PID" ]; then
-            echo "Found running application with PID: $PID. Stopping gracefully..."
-            kill -15 $PID
-            # Give the OS a few seconds to clean up the port binding
-            sleep 5
-          else
-            echo "No existing application process found running."
-          fi
+          # 🌟 FIX: Running the lookup & kill inside a subshell ensures any SIGTERM/143 errors stay contained and never crash the pipeline
+          (
+            PID=$(pgrep -f 'java -jar' || true)
+            if [ -n "$PID" ]; then
+              echo "Stopping application PID: $PID"
+              kill -15 $PID
+              sleep 5
+            else
+              echo "No running application found."
+            fi
+          ) || true
           
+          echo "Moving forward with deployment..."
           cd ~/app/backend
           
-          echo "Starting the new version using nohup with complete detachment..."
-          # 🌟 FIX: Adding '</dev/null' completely severs the background process from the GitHub Actions runner terminal session
+          echo "Starting the new version using nohup..."
           nohup java -jar *.jar > app.log 2>&1 </dev/null &
           
-          echo "Process spawned successfully."
+          echo "Pipeline execution finished successfully."
           sleep 2
